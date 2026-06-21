@@ -29,4 +29,4 @@ This project uses an ESP32 to learn and replay infrared remote control signals.
 - Smart Device Control
 
 ## Author
-Abhishek B
+Abhishek B H
