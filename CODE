@@ -1,0 +1,93 @@
+#include <IRremoteESP8266.h>
+#include <IRrecv.h>
+#include <IRsend.h>
+#include <IRutils.h>
+#include <Preferences.h>
+
+#define RECV_PIN       15
+#define IR_SEND_PIN    4
+
+#define LEARN_BUTTON   13
+#define REPLAY_BUTTON  12
+
+IRrecv irrecv(RECV_PIN);
+IRsend irsend(IR_SEND_PIN);
+decode_results results;
+
+Preferences prefs;
+
+uint32_t learnedCode = 0;
+bool codeStored = false;
+
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(LEARN_BUTTON, INPUT_PULLUP);
+  pinMode(REPLAY_BUTTON, INPUT_PULLUP);
+
+  irrecv.enableIRIn();
+  irsend.begin();
+
+  // Load saved code from flash
+  prefs.begin("irdata", true);
+  learnedCode = prefs.getULong("code", 0);
+  prefs.end();
+
+  if (learnedCode != 0) {
+    codeStored = true;
+    Serial.print("Loaded Saved Code: 0x");
+    Serial.println(learnedCode, HEX);
+  } else {
+    Serial.println("No saved code found.");
+  }
+
+  Serial.println("System Ready");
+}
+
+void loop() {
+
+  // LEARN BUTTON
+  if (digitalRead(LEARN_BUTTON) == LOW) {
+
+    Serial.println("\nLearning Mode");
+    Serial.println("Press remote button...");
+
+    while (!irrecv.decode(&results)) {
+      delay(10);
+    }
+
+    learnedCode = results.value;
+    codeStored = true;
+
+    // Save permanently
+    prefs.begin("irdata", false);
+    prefs.putULong("code", learnedCode);
+    prefs.end();
+
+    Serial.print("Saved Code: 0x");
+    Serial.println(learnedCode, HEX);
+
+    irrecv.resume();
+
+    delay(1000);
+  }
+
+  // REPLAY BUTTON
+  if (digitalRead(REPLAY_BUTTON) == LOW) {
+
+    if (codeStored) {
+
+      Serial.print("Sending Code: 0x");
+      Serial.println(learnedCode, HEX);
+
+      irsend.sendSAMSUNG(learnedCode, 32);
+
+      Serial.println("IR Sent");
+    }
+    else {
+      Serial.println("No code stored.");
+    }
+
+    delay(1000);
+  }
+}
